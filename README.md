@@ -42,9 +42,9 @@ curl -X POST http://localhost:4089/encrypt \
 
 ## 👩‍💻 Author
 
-- Ishaa Jain \
-- University of Cincinnati · Computer Science \
-- LinkedIn • GitHub
+Ishaa Jain \
+University of Cincinnati · Computer Science \
+LinkedIn • GitHub
 
 
 
