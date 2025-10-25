@@ -36,15 +36,14 @@ The app lets users securely encrypt/decrypt text or files using multiple algorit
 ## Example API Request
 
 - 🔑 Encrypt a message
-curl -X POST http://localhost:8080/encrypt \
+curl -X POST http://localhost:4089/encrypt \
   -H "Content-Type: application/json" \
   -d '{"algorithm":"AES","plaintext":"Hello Ishaa"}'
 
 ## 👩‍💻 Author
 
-Ishaa Jain
-University of Cincinnati · Computer Science
-LinkedIn • GitHub
+- Ishaa Jain \
+- University of Cincinnati · Computer Science \
+- LinkedIn • GitHub
 
-## 📁 Project Structure
 
