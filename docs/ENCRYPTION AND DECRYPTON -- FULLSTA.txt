@@ -1,0 +1,198 @@
+						  ENCRYPTION AND DECRYPTON -- FULLSTACK
+
+Tech Stack Overview
+
+## **Backend (Rust / Axum)**
+
+* **Language**: Rust (safe, performant systems language)
+* **Framework**: Axum (built on Hyper/Tokio, ergonomic web framework)
+* **Async runtime**: Tokio
+* **Database**: PostgreSQL (via Supabase)
+* **ORM / Queries**: SQLx (compile-time checked async SQL)
+* **Crypto libraries**:
+
+  * `aes-gcm` → AES-256-GCM encryption/decryption
+  * `sha2` → SHA-256 hashing
+  * `argon2` → Argon2id password hashing & verification
+  * `base64` → encoding/decoding for transport
+* **Auth / Security**:
+
+  * Supabase Auth (JWT)
+  * `jsonwebtoken` crate for JWT verification
+  * Row-Level Security (RLS) enforced in Postgres
+* **Other crates**:
+
+  * `tower-http` → CORS, tracing, compression
+  * `dotenvy` → env management
+  * `tracing` → logs/observability
+
+---
+
+## **Frontend (SvelteKit)**
+
+* **Framework**: SvelteKit (SSR/SPA hybrid, fast, simple)
+* **Styling**: Tailwind CSS
+* **UI components**: shadcn-svelte (or Skeleton UI as backup)
+* **Forms & validation**: Zod + sveltekit-superforms (or custom)
+* **State management**: Svelte stores (for mode toggle etc.)
+* **Auth**: Supabase Auth (via `@supabase/auth-helpers-sveltekit`)
+* **API calls**: built-in fetch + helper wrappers (with JWT in `Authorization` header)
+* **Optional crypto (client mode)**: Web Crypto API (`SubtleCrypto`)
+
+---
+
+## **Database (Supabase / Postgres)**
+
+* Managed Postgres provided by Supabase
+* Built-in Auth service (user accounts, JWT)
+* Tables:
+
+  * `operations` (hash/encrypt/decrypt history)
+  * `encrypted_blobs` (optional: file crypto)
+* **RLS Policies**: ensure users can only access their own rows (`auth.uid()`)
+
+---
+
+## **DevOps / Tooling**
+
+* **Version control**: Git + GitHub
+* **Environment management**: `.env` files (with `.env.example` in repo)
+* **Package managers**: Cargo (Rust), npm (Node/SvelteKit)
+* **Build tools**: Vite (bundler for SvelteKit), Cargo (for Rust)
+* **Deployment targets**:
+
+  * Backend → Fly.io / Railway / Render
+  * Frontend → Vercel / Netlify
+  * Database → Supabase (cloud)
+* **Testing**:
+
+  * Backend → Rust unit + integration tests (`cargo test`)
+  * Frontend → Vitest / Playwright (optional for e2e)
+
+---
+
+⚡ **Core idea:**
+
+* **Hashes**: one-way (SHA-256, Argon2id).
+* **Encryption**: two-way (AES-256-GCM).
+* **Auth**: Supabase JWT.
+* **Access control**: Postgres RLS.
+* **Frontend**: SvelteKit for UI, with optional **client-side crypto** toggle.
+
+---
+
+do you want me to also make a **diagram (tech stack flow)** showing how frontend ↔ backend ↔ supabase interact, so you can keep it handy while setting up?
+
+
+
+frontend/
+├─ package.json
+├─ svelte.config.js
+├─ vite.config.ts
+├─ tailwind.config.cjs
+├─ postcss.config.cjs
+├─ .env                         # PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, PUBLIC_API_BASE
+└─ src/
+   ├─ app.d.ts
+   ├─ hooks.server.ts           # supabase auth helpers (session → locals)
+   ├─ lib/
+   │  ├─ supabaseClient.ts      # create supabase client (browser)
+   │  ├─ api/
+   │  │  ├─ client.ts           # fetch wrapper → attaches Authorization token
+   │  │  ├─ crypto.ts           # call /api/hash|encrypt|decrypt
+   │  │  └─ history.ts          # call /api/history endpoints
+   │  ├─ crypto/
+   │  │  ├─ webcrypto.ts        # client-side AES-GCM + SHA-256 via Web Crypto
+   │  │  └─ validate.ts         # zod schemas, size limits, base64 checks
+   │  ├─ components/
+   │  │  ├─ AppShell.svelte     # sidebar + topbar + slot
+   │  │  ├─ ModeToggle.svelte   # Server/Client switch
+   │  │  ├─ TextAreaCard.svelte
+   │  │  ├─ ResultCard.svelte   # shows hash or iv/ct/tag + Copy buttons
+   │  │  ├─ JsonViewer.svelte
+   │  │  └─ Toast.ts            # helper to show toasts
+   │  ├─ stores/
+   │  │  └─ mode.ts             # writable<'server' | 'client'>
+   │  └─ types.ts               # shared types for FE (EncOut, HistoryItem, etc.)
+   └─ routes/
+      ├─ +layout.svelte         # wraps AppShell
+      ├─ +layout.server.ts      # protect /app/*; expose session to pages
+      ├─ +page.svelte           # landing
+      ├─ auth/
+      │  └─ +page.svelte        # login/signup UI (supabase-js)
+      └─ app/
+         ├─ +layout.svelte      # protected area shell
+         ├─ +layout.server.ts   # redirect unauthenticated → /auth
+         ├─ hash/
+         │  ├─ +page.svelte     # inputs & run buttons
+         │  └─ +page.server.ts  # server-mode actions → call backend
+         ├─ encrypt/
+         │  ├─ +page.svelte     # inputs, Encrypt/Decrypt buttons, Save checkbox
+         │  └─ +page.server.ts  # server-mode encrypt/decrypt + save
+         ├─ history/
+         │  ├─ +page.svelte     # table of operations
+         │  └─ +page.server.ts  # fetch list (with token) from backend
+         └─ files/              # (stretch) file crypto pages later
+
+
+
+backend/
+├─ Cargo.toml
+├─ .env                             # PORT, DATABASE_URL, SUPABASE_JWT_SECRET, ENCRYPTION_KEY_B64
+├─ migrations/                      # sqlx migrations (timestamped .sql files)
+│  ├─ 2025xxxxxx_create_operations.sql
+│  └─ 2025xxxxxx_create_encrypted_blobs.sql
+└─ src/
+   ├─ main.rs                       # bootstraps server (reads config, start_app)
+   ├─ lib.rs                        # re-exports (pub mod ...)
+   ├─ config.rs                     # env parsing (Port, DB URL, keys)
+   ├─ app.rs                        # build Router + layers (CORS, tracing, routes)
+   ├─ db.rs                         # sqlx pool + helpers (get_conn_with_claims)
+   ├─ errors.rs                     # AppError enum -> axum responses
+   ├─ middleware/
+   │  ├─ mod.rs
+   │  ├─ auth.rs                    # Supabase JWT verify → Claims
+   │  └─ set_rls.rs                 # SET LOCAL "request.jwt.claims" per request
+   ├─ routes/
+   │  ├─ mod.rs
+   │  ├─ health.rs                  # GET /health
+   │  ├─ crypto_public.rs           # POST /api/hash/* (no auth)
+   │  ├─ crypto_protected.rs        # POST /api/encrypt|decrypt (auth)
+   │  ├─ history.rs                 # GET/POST/DELETE /api/history...
+   │  └─ files.rs                   # (stretch) file encrypt/decrypt endpoints
+   ├─ security/
+   │  ├─ aes.rs                     # AES-GCM helpers (encrypt/decrypt, IV gen)
+   │  ├─ hash.rs                    # sha256_hex, argon2_hash, argon2_verify
+   │  └─ jwt.rs                     # Supabase JWT decode/validate (HS256)
+   ├─ models/
+   │  ├─ claims.rs                  # struct Claims { sub: Uuid, ... }
+   │  ├─ dto.rs                     # request/response DTOs (TextIn, EncOut, etc.)
+   │  └─ db.rs                      # DB models if needed (Operation, EncryptedBlob)
+   ├─ store/
+   │  ├─ operations.rs              # insert_operation, list_operations, delete_operation
+   │  └─ blobs.rs                   # (stretch) CRUD for encrypted_blobs
+   └─ utils/
+      ├─ timing.rs                  # measure_ms(f)
+      └─ id.rs                      # new_uuid(), etc.
+
+
+migrations/
+├─ 2025xxxxxx_init_extensions.sql       # enable uuid-ossp or pgcrypto if needed
+├─ 2025xxxxxx_create_operations.sql     # table & indexes
+├─ 2025xxxxxx_create_blobs.sql          # optional blobs table
+└─ 2025xxxxxx_rls_policies.sql          # enable RLS + policies
+
+frontend/
+└─ tests/
+   ├─ unit/
+   │  └─ webcrypto.spec.ts   # client AES roundtrip
+   └─ e2e/
+      └─ encrypt_save_list_delete.spec.ts  # Playwright (optional)
+
+backend/
+└─ tests/
+   ├─ crypto_roundtrip.rs    # AES-GCM ok/bad-tag
+   ├─ argon2_verify.rs       # verify good/bad
+   └─ rls_integration.rs     # requires DB; uses two JWTs for two users
+
+
